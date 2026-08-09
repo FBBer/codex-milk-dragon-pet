@@ -376,6 +376,9 @@ jobs:
               if ($ExpectFailure -and $Status -eq 0) {
                   throw "Release installer unexpectedly succeeded."
               }
+              if ($ExpectFailure) {
+                  $global:LASTEXITCODE = 0
+              }
               if (-not $ExpectFailure -and $Status -ne 0) {
                   throw "Release installer failed with exit code $Status."
               }
