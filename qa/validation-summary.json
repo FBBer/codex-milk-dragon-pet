@@ -1,0 +1,31 @@
+{
+  "petId": "milk-dragon",
+  "displayName": "奶龙",
+  "spriteVersionNumber": 2,
+  "atlas": {
+    "format": "WebP",
+    "width": 1536,
+    "height": 2288,
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "cellHeight": 208,
+    "hasAlpha": true
+  },
+  "validation": {
+    "ok": true,
+    "errors": [],
+    "warnings": []
+  },
+  "visualQa": "pass",
+  "blindDirectionValidation": {
+    "ok": true,
+    "cardinalHardGates": "pass",
+    "reviewedIntermediateWarnings": 5
+  },
+  "staticIdentityGates": {
+    "threeQuarterScreenLeft": "pass",
+    "dominantPupilLowerLeft": "pass",
+    "farEyeSliverVisible": "pass"
+  }
+}
