@@ -65,6 +65,8 @@ foreach ($Target in @($DestinationManifest, $DestinationSprite)) {
 
 $TempManifest = Join-Path $Destination (".pet.json.install." + [Guid]::NewGuid().ToString("N"))
 $TempSprite = Join-Path $Destination (".spritesheet.webp.install." + [Guid]::NewGuid().ToString("N"))
+$BackupManifest = "$TempManifest.backup"
+$BackupSprite = "$TempSprite.backup"
 
 function Install-FileSafely {
     param(
@@ -73,12 +75,17 @@ function Install-FileSafely {
         [Parameter(Mandatory = $true)]
         [string]$Target,
         [Parameter(Mandatory = $true)]
-        [string]$Temporary
+        [string]$Temporary,
+        [Parameter(Mandatory = $true)]
+        [string]$Backup
     )
 
     Copy-Item -LiteralPath $Source -Destination $Temporary
     if ([System.IO.File]::Exists($Target)) {
-        [System.IO.File]::Replace($Temporary, $Target, $null, $true)
+        [System.IO.File]::Replace($Temporary, $Target, $Backup, $true)
+        if ([System.IO.File]::Exists($Backup)) {
+            [System.IO.File]::Delete($Backup)
+        }
     }
     else {
         [System.IO.File]::Move($Temporary, $Target)
@@ -86,11 +93,13 @@ function Install-FileSafely {
 }
 
 try {
-    Install-FileSafely -Source $SourceManifest -Target $DestinationManifest -Temporary $TempManifest
-    Install-FileSafely -Source $SourceSprite -Target $DestinationSprite -Temporary $TempSprite
+    Install-FileSafely -Source $SourceManifest -Target $DestinationManifest `
+        -Temporary $TempManifest -Backup $BackupManifest
+    Install-FileSafely -Source $SourceSprite -Target $DestinationSprite `
+        -Temporary $TempSprite -Backup $BackupSprite
 }
 finally {
-    foreach ($Temporary in @($TempManifest, $TempSprite)) {
+    foreach ($Temporary in @($TempManifest, $TempSprite, $BackupManifest, $BackupSprite)) {
         if (Test-Path -LiteralPath $Temporary) {
             Remove-Item -LiteralPath $Temporary -Force
         }

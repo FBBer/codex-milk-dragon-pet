@@ -19,7 +19,7 @@ jobs:
           - macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verify package and installer
         shell: bash
@@ -67,7 +67,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Verify package and installer
         shell: powershell
@@ -124,4 +124,14 @@ jobs:
           & .\scripts\install.ps1 -Force
           if ((Get-Content -LiteralPath $Canary -Raw) -ne "do-not-overwrite") {
               throw "Installer overwrote a hard-linked file outside the pet directory."
+          }
+          if ((Get-FileHash -LiteralPath "pet.json" -Algorithm SHA256).Hash -ne
+              (Get-FileHash -LiteralPath $InstalledManifest -Algorithm SHA256).Hash) {
+              throw "Hard-link-safe update did not install the packaged pet.json."
+          }
+
+          $Leftovers = @(Get-ChildItem -LiteralPath $Destination -Force |
+              Where-Object { $_.Name -like ".*.install.*" })
+          if ($Leftovers.Count -ne 0) {
+              throw "Installer left temporary or backup files behind."
           }
