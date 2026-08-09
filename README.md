@@ -1,6 +1,7 @@
 # 奶龙 · Codex 桌面宠物
 
-[![Validate](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate.yml/badge.svg)](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate.yml)
+[![Validate repository](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate.yml/badge.svg)](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate.yml)
+[![Validate release](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate-release.yml/badge.svg)](https://github.com/FBBer/codex-milk-dragon-pet/actions/workflows/validate-release.yml)
 
 <p align="center">
   <img src="preview/static-preview.png" alt="奶龙静态预览" width="320">
@@ -10,13 +11,34 @@
 
 这是一个可以安装到 ChatGPT/Codex 桌面应用 Pets 功能中的非官方社区自制宠物。安装后，宠物文件只保存在你的电脑上。
 
-## 安装
+## 最简单的安装方式：下载 Release
+
+不需要安装 Git，直接下载经过三平台测试的稳定包：
+
+1. [下载奶龙 v1.0.0 ZIP](https://github.com/FBBer/codex-milk-dragon-pet/releases/download/v1.0.0/milk-dragon-codex-pet-v1.0.0.zip)。
+2. 解压 ZIP，并进入解压得到的 `milk-dragon-codex-pet-v1.0.0` 文件夹。
+3. Windows 在该文件夹中打开 PowerShell，运行：
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
+   ```
+
+4. macOS / Linux 在该文件夹中打开终端，运行：
+
+   ```bash
+   sh scripts/install.sh
+   ```
+
+发布页同时提供 ZIP 的 SHA-256 校验文件。完整版本说明见 [Releases](https://github.com/FBBer/codex-milk-dragon-pet/releases)。
+
+## 从仓库安装
 
 ### macOS / Linux
 
 打开终端，依次运行：
 
 ```bash
+cd "$HOME"
 git clone https://github.com/FBBer/codex-milk-dragon-pet.git
 cd codex-milk-dragon-pet
 sh scripts/install.sh
@@ -33,6 +55,7 @@ sh scripts/install.sh --force
 打开 PowerShell，依次运行：
 
 ```powershell
+Set-Location $HOME
 git clone https://github.com/FBBer/codex-milk-dragon-pet.git
 Set-Location codex-milk-dragon-pet
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
@@ -44,7 +67,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Force
 ```
 
-不使用 Git 的用户也可以在 GitHub 页面点击 **Code → Download ZIP**，解压后在项目文件夹中运行对应的安装脚本。
+不需要管理员权限；关键是先进入个人目录或解压后的项目文件夹，不要在 `C:\Windows\System32` 中克隆仓库。
 
 ## 在应用中启用
 
@@ -75,7 +98,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Force
 - [查看观察方向检查图](qa/look-directions.png)
 - [查看公开验证摘要](qa/validation-summary.json)
 - [查看文件校验值](SHA256SUMS)
-- GitHub Actions 会在 macOS、Linux 和 Windows 上复测安装流程
+- GitHub Actions 会在 macOS、Linux 和 Windows 上分别复测仓库安装与 Release 附件安装
 
 ## 手动安装
 

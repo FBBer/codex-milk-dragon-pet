@@ -1,0 +1,434 @@
+name: Validate release package
+run-name: Validate release ${{ github.event.release.tag_name || inputs.tag }}
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to download and validate
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  ARCHIVE_NAME: milk-dragon-codex-pet-${{ github.event.release.tag_name || inputs.tag }}.zip
+  PACKAGE_DIR_NAME: milk-dragon-codex-pet-${{ github.event.release.tag_name || inputs.tag }}
+  EXPECTED_PET_SHA256: 3c5d0f60fad3db129574ca0481029e2a2eea38c036e4c550060d988239b5a64e
+  EXPECTED_SPRITE_SHA256: f0f6d1568a5ce119645e851e8e72a497e4918b4df38a3a66f76a9ff7303a3437
+
+jobs:
+  unix-release-install:
+    name: Release install on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - name: Download, verify, and install release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
+          download_dir="$RUNNER_TEMP/发布 下载"
+          archive="$download_dir/$ARCHIVE_NAME"
+          sidecar="$archive.sha256"
+          mkdir -p "$download_dir"
+
+          download_release_asset() {
+            asset_url=$1
+            output_path=$2
+            attempt=1
+            while [ "$attempt" -le 12 ]; do
+              if curl -fL --silent --show-error "$asset_url" -o "$output_path"; then
+                return 0
+              fi
+              rm -f "$output_path"
+              if [ "$attempt" -eq 12 ]; then
+                return 1
+              fi
+              sleep 5
+              attempt=$((attempt + 1))
+            done
+          }
+
+          download_release_asset "$base_url/$ARCHIVE_NAME" "$archive"
+          download_release_asset "$base_url/$ARCHIVE_NAME.sha256" "$sidecar"
+
+          sidecar_line=$(tr -d '\r' <"$sidecar" | sed -n '1p')
+          expected_hash=$(printf '%s\n' "$sidecar_line" | awk '{print tolower($1)}')
+          listed_archive=$(printf '%s\n' "$sidecar_line" | awk '{print $2}')
+          listed_archive=${listed_archive#\*}
+          if [ "$(printf '%s\n' "$sidecar_line" | awk '{print NF}')" -ne 2 ] ||
+             ! printf '%s\n' "$expected_hash" | grep -Eq '^[0-9a-f]{64}$' ||
+             [ "$listed_archive" != "$ARCHIVE_NAME" ]; then
+            echo "Invalid release checksum sidecar." >&2
+            exit 1
+          fi
+          if command -v sha256sum >/dev/null 2>&1; then
+            actual_hash=$(sha256sum "$archive" | awk '{print $1}')
+          else
+            actual_hash=$(shasum -a 256 "$archive" | awk '{print $1}')
+          fi
+          test "$actual_hash" = "$expected_hash"
+
+          if unzip -Z1 "$archive" | grep -E '(^/|(^|/)\.\.(/|$)|\\)' >/dev/null; then
+            echo "Unsafe path found in release archive." >&2
+            exit 1
+          fi
+
+          actual_entries="$RUNNER_TEMP/release-entries.txt"
+          expected_entries="$RUNNER_TEMP/expected-release-entries.txt"
+          unzip -Z1 "$archive" | sed 's#/$##' | LC_ALL=C sort >"$actual_entries"
+          printf '%s\n' \
+            "$PACKAGE_DIR_NAME" \
+            "$PACKAGE_DIR_NAME/ASSET-NOTICE.md" \
+            "$PACKAGE_DIR_NAME/BUILD-INFO.json" \
+            "$PACKAGE_DIR_NAME/LICENSE-CODE.md" \
+            "$PACKAGE_DIR_NAME/README.md" \
+            "$PACKAGE_DIR_NAME/SHA256SUMS" \
+            "$PACKAGE_DIR_NAME/pet.json" \
+            "$PACKAGE_DIR_NAME/scripts" \
+            "$PACKAGE_DIR_NAME/scripts/install.ps1" \
+            "$PACKAGE_DIR_NAME/scripts/install.sh" \
+            "$PACKAGE_DIR_NAME/spritesheet.webp" \
+            >"$expected_entries"
+          LC_ALL=C sort -o "$expected_entries" "$expected_entries"
+          diff -u "$expected_entries" "$actual_entries"
+
+          extract_root="$RUNNER_TEMP/奶龙 Release 解压"
+          mkdir -p "$extract_root"
+          unzip -q "$archive" -d "$extract_root"
+          package_root="$extract_root/$PACKAGE_DIR_NAME"
+
+          test -d "$package_root"
+          test ! -L "$package_root"
+          test -d "$package_root/scripts"
+          test ! -L "$package_root/scripts"
+          test -z "$(find "$package_root" -type l -print -quit)"
+
+          for required_file in \
+            pet.json \
+            spritesheet.webp \
+            scripts/install.sh \
+            scripts/install.ps1; do
+            test -f "$package_root/$required_file"
+            test ! -L "$package_root/$required_file"
+          done
+
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd "$package_root" && sha256sum -c SHA256SUMS)
+          else
+            (cd "$package_root" && shasum -a 256 -c SHA256SUMS)
+          fi
+
+          pet_hash=$(sha256_file="$package_root/pet.json"; if command -v sha256sum >/dev/null 2>&1; then sha256sum "$sha256_file" | awk '{print tolower($1)}'; else shasum -a 256 "$sha256_file" | awk '{print tolower($1)}'; fi)
+          sprite_hash=$(sha256_file="$package_root/spritesheet.webp"; if command -v sha256sum >/dev/null 2>&1; then sha256sum "$sha256_file" | awk '{print tolower($1)}'; else shasum -a 256 "$sha256_file" | awk '{print tolower($1)}'; fi)
+          test "$pet_hash" = "$EXPECTED_PET_SHA256"
+          test "$sprite_hash" = "$EXPECTED_SPRITE_SHA256"
+
+          jq -e '
+            .id == "milk-dragon" and
+            .displayName == "奶龙" and
+            .description == "一个老绷带" and
+            .spriteVersionNumber == 2 and
+            .spritesheetPath == "spritesheet.webp"
+          ' "$package_root/pet.json" >/dev/null
+
+          export CODEX_HOME="$RUNNER_TEMP/奶龙 codex home"
+          cd "$RUNNER_TEMP"
+          sh "$package_root/scripts/install.sh"
+          cmp "$package_root/pet.json" "$CODEX_HOME/pets/milk-dragon/pet.json"
+          cmp "$package_root/spritesheet.webp" "$CODEX_HOME/pets/milk-dragon/spritesheet.webp"
+
+          if sh "$package_root/scripts/install.sh"; then
+            echo "Expected a protected reinstall to fail." >&2
+            exit 1
+          fi
+
+          sh "$package_root/scripts/install.sh" --force
+          cmp "$package_root/pet.json" "$CODEX_HOME/pets/milk-dragon/pet.json"
+          cmp "$package_root/spritesheet.webp" "$CODEX_HOME/pets/milk-dragon/spritesheet.webp"
+
+          canary="$RUNNER_TEMP/release-canary.txt"
+          printf '%s\n' "do-not-overwrite" >"$canary"
+          rm "$CODEX_HOME/pets/milk-dragon/pet.json"
+          ln -s "$canary" "$CODEX_HOME/pets/milk-dragon/pet.json"
+          if sh "$package_root/scripts/install.sh" --force; then
+            echo "Expected a linked target file to be rejected." >&2
+            exit 1
+          fi
+          test "$(cat "$canary")" = "do-not-overwrite"
+
+          linked_home="$RUNNER_TEMP/linked codex home"
+          outside_target="$RUNNER_TEMP/outside pet target"
+          mkdir -p "$linked_home/pets" "$outside_target"
+          printf '%s\n' "outside-canary" >"$outside_target/canary.txt"
+          ln -s "$outside_target" "$linked_home/pets/milk-dragon"
+          if CODEX_HOME="$linked_home" sh "$package_root/scripts/install.sh" --force; then
+            echo "Expected a linked destination directory to be rejected." >&2
+            exit 1
+          fi
+          test "$(cat "$outside_target/canary.txt")" = "outside-canary"
+          test ! -e "$outside_target/pet.json"
+
+          for leftover in "$CODEX_HOME/pets/milk-dragon"/.*.install.*; do
+            if [ -e "$leftover" ] || [ -L "$leftover" ]; then
+              echo "Release installer left a temporary file: $leftover" >&2
+              exit 1
+            fi
+          done
+
+  windows-release-install:
+    name: Release install on Windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download, verify, and install release asset
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = "Stop"
+          $ProgressPreference = "SilentlyContinue"
+
+          function Get-ReleaseAsset {
+              param(
+                  [Parameter(Mandatory = $true)]
+                  [string]$Uri,
+                  [Parameter(Mandatory = $true)]
+                  [string]$Output
+              )
+
+              for ($Attempt = 1; $Attempt -le 12; $Attempt++) {
+                  try {
+                      Invoke-WebRequest -Uri $Uri -OutFile $Output -UseBasicParsing
+                      return
+                  }
+                  catch {
+                      if ($Attempt -eq 12) {
+                          throw
+                      }
+                      Start-Sleep -Seconds 5
+                  }
+              }
+          }
+
+          $BaseUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:RELEASE_TAG"
+          $DownloadRoot = Join-Path $env:RUNNER_TEMP "发布 下载"
+          New-Item -ItemType Directory -Path $DownloadRoot -Force | Out-Null
+          $Archive = Join-Path $DownloadRoot $env:ARCHIVE_NAME
+          $Sidecar = "$Archive.sha256"
+          Get-ReleaseAsset -Uri "$BaseUrl/$env:ARCHIVE_NAME" -Output $Archive
+          Get-ReleaseAsset -Uri "$BaseUrl/$env:ARCHIVE_NAME.sha256" -Output $Sidecar
+
+          $SidecarLine = (Get-Content -LiteralPath $Sidecar -Raw).Trim()
+          $SidecarMatch = [regex]::Match(
+              $SidecarLine,
+              '^(?<hash>[0-9A-Fa-f]{64})\s+\*?(?<file>\S+)\s*$'
+          )
+          if (-not $SidecarMatch.Success -or
+              $SidecarMatch.Groups["file"].Value -cne $env:ARCHIVE_NAME) {
+              throw "Invalid release checksum sidecar."
+          }
+          $ExpectedHash = $SidecarMatch.Groups["hash"].Value.ToLowerInvariant()
+          $ActualHash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($ActualHash -ne $ExpectedHash) {
+              throw "Release archive checksum mismatch."
+          }
+
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $Zip = [IO.Compression.ZipFile]::OpenRead($Archive)
+          try {
+              $ActualEntries = @()
+              foreach ($Entry in $Zip.Entries) {
+                  $Name = $Entry.FullName
+                  if ($Name.StartsWith("/") -or
+                      $Name -match '^[A-Za-z]:' -or
+                      $Name -match '(^|/)\.\.(/|$)' -or
+                      $Name.Contains('\')) {
+                      throw "Unsafe path in release archive: $Name"
+                  }
+                  $ActualEntries += $Name.TrimEnd('/')
+              }
+          }
+          finally {
+              $Zip.Dispose()
+          }
+
+          $ExpectedEntries = @(
+              $env:PACKAGE_DIR_NAME,
+              "$($env:PACKAGE_DIR_NAME)/ASSET-NOTICE.md",
+              "$($env:PACKAGE_DIR_NAME)/BUILD-INFO.json",
+              "$($env:PACKAGE_DIR_NAME)/LICENSE-CODE.md",
+              "$($env:PACKAGE_DIR_NAME)/README.md",
+              "$($env:PACKAGE_DIR_NAME)/SHA256SUMS",
+              "$($env:PACKAGE_DIR_NAME)/pet.json",
+              "$($env:PACKAGE_DIR_NAME)/scripts",
+              "$($env:PACKAGE_DIR_NAME)/scripts/install.ps1",
+              "$($env:PACKAGE_DIR_NAME)/scripts/install.sh",
+              "$($env:PACKAGE_DIR_NAME)/spritesheet.webp"
+          )
+          $SortedExpectedEntries = @($ExpectedEntries | Sort-Object)
+          $SortedActualEntries = @($ActualEntries | Sort-Object)
+          $EntryDifferences = @(Compare-Object `
+              -ReferenceObject $SortedExpectedEntries `
+              -DifferenceObject $SortedActualEntries)
+          if ($ActualEntries.Count -ne $ExpectedEntries.Count -or
+              $EntryDifferences.Count -ne 0) {
+              throw "Release archive contains unexpected entries."
+          }
+
+          $ExtractRoot = Join-Path $env:RUNNER_TEMP "奶龙 Release 解压"
+          Expand-Archive -LiteralPath $Archive -DestinationPath $ExtractRoot
+          $PackageRoot = Join-Path $ExtractRoot $env:PACKAGE_DIR_NAME
+
+          foreach ($Required in @(
+              "pet.json",
+              "spritesheet.webp",
+              "scripts\install.sh",
+              "scripts\install.ps1"
+          )) {
+              if (-not (Test-Path -LiteralPath (Join-Path $PackageRoot $Required) -PathType Leaf)) {
+                  throw "Release package is missing $Required."
+              }
+              $RequiredItem = Get-Item -LiteralPath (Join-Path $PackageRoot $Required) -Force
+              if (($RequiredItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                  throw "Release package contains an unsafe linked file: $Required."
+              }
+          }
+
+          foreach ($Line in Get-Content -LiteralPath (Join-Path $PackageRoot "SHA256SUMS")) {
+              if ([string]::IsNullOrWhiteSpace($Line)) {
+                  continue
+              }
+              $Parts = $Line -split "\s+", 2
+              $Expected = $Parts[0].ToLowerInvariant()
+              $RelativePath = $Parts[1].Trim()
+              $Actual = (Get-FileHash -LiteralPath (Join-Path $PackageRoot $RelativePath) -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($Actual -ne $Expected) {
+                  throw "Release file checksum mismatch: $RelativePath"
+              }
+          }
+
+          $PetHash = (Get-FileHash -LiteralPath (Join-Path $PackageRoot "pet.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+          $SpriteHash = (Get-FileHash -LiteralPath (Join-Path $PackageRoot "spritesheet.webp") -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($PetHash -cne $env:EXPECTED_PET_SHA256 -or
+              $SpriteHash -cne $env:EXPECTED_SPRITE_SHA256) {
+              throw "Release pet files do not match the validated project files."
+          }
+
+          $Manifest = Get-Content -LiteralPath (Join-Path $PackageRoot "pet.json") -Raw | ConvertFrom-Json
+          if ($Manifest.id -ne "milk-dragon" -or
+              $Manifest.displayName -ne "奶龙" -or
+              $Manifest.description -ne "一个老绷带" -or
+              $Manifest.spriteVersionNumber -ne 2 -or
+              $Manifest.spritesheetPath -ne "spritesheet.webp") {
+              throw "pet.json does not match the expected manifest."
+          }
+
+          $Installer = Join-Path $PackageRoot "scripts\install.ps1"
+          $env:CODEX_HOME = Join-Path $env:RUNNER_TEMP "奶龙 codex home"
+          Set-Location -LiteralPath $env:RUNNER_TEMP
+
+          function Invoke-ReleaseInstaller {
+              param(
+                  [switch]$Force,
+                  [switch]$ExpectFailure
+              )
+
+              $Arguments = @(
+                  "-NoProfile",
+                  "-NonInteractive",
+                  "-ExecutionPolicy", "Bypass",
+                  "-File", $Installer
+              )
+              if ($Force) {
+                  $Arguments += "-Force"
+              }
+
+              if ($ExpectFailure) {
+                  & powershell.exe @Arguments *> $null
+              }
+              else {
+                  & powershell.exe @Arguments
+              }
+              $Status = $LASTEXITCODE
+              if ($ExpectFailure -and $Status -eq 0) {
+                  throw "Release installer unexpectedly succeeded."
+              }
+              if (-not $ExpectFailure -and $Status -ne 0) {
+                  throw "Release installer failed with exit code $Status."
+              }
+          }
+
+          Invoke-ReleaseInstaller
+
+          $Destination = Join-Path $env:CODEX_HOME "pets\milk-dragon"
+          foreach ($FileName in @("pet.json", "spritesheet.webp")) {
+              $SourceHash = (Get-FileHash -LiteralPath (Join-Path $PackageRoot $FileName) -Algorithm SHA256).Hash
+              $InstalledHash = (Get-FileHash -LiteralPath (Join-Path $Destination $FileName) -Algorithm SHA256).Hash
+              if ($SourceHash -ne $InstalledHash) {
+                  throw "Installed $FileName differs from the release package."
+              }
+          }
+
+          Invoke-ReleaseInstaller -ExpectFailure
+
+          Invoke-ReleaseInstaller -Force
+
+          $Canary = Join-Path $env:RUNNER_TEMP "release-canary.txt"
+          Set-Content -LiteralPath $Canary -Value "do-not-overwrite" -NoNewline
+          $InstalledManifest = Join-Path $Destination "pet.json"
+          Remove-Item -LiteralPath $InstalledManifest -Force
+          New-Item -ItemType HardLink -Path $InstalledManifest -Target $Canary | Out-Null
+
+          Invoke-ReleaseInstaller -Force
+          if ((Get-Content -LiteralPath $Canary -Raw) -ne "do-not-overwrite") {
+              throw "Release installer overwrote a hard-linked file outside the pet directory."
+          }
+          if ((Get-FileHash -LiteralPath (Join-Path $PackageRoot "pet.json") -Algorithm SHA256).Hash -ne
+              (Get-FileHash -LiteralPath $InstalledManifest -Algorithm SHA256).Hash) {
+              throw "Hard-link-safe release update did not install pet.json."
+          }
+
+          $Leftovers = @(Get-ChildItem -LiteralPath $Destination -Force |
+              Where-Object { $_.Name -like ".*.install.*" })
+          if ($Leftovers.Count -ne 0) {
+              throw "Release installer left temporary or backup files behind."
+          }
+
+          $LinkedCodexHome = Join-Path $env:RUNNER_TEMP "linked codex home"
+          $LinkedPetsRoot = Join-Path $LinkedCodexHome "pets"
+          $OutsideTarget = Join-Path $env:RUNNER_TEMP "outside pet target"
+          New-Item -ItemType Directory -Path $LinkedPetsRoot, $OutsideTarget -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $OutsideTarget "canary.txt") -Value "outside-canary" -NoNewline
+          New-Item -ItemType Junction `
+              -Path (Join-Path $LinkedPetsRoot "milk-dragon") `
+              -Target $OutsideTarget | Out-Null
+
+          $PreviousCodexHome = $env:CODEX_HOME
+          try {
+              $env:CODEX_HOME = $LinkedCodexHome
+              Invoke-ReleaseInstaller -Force -ExpectFailure
+          }
+          finally {
+              $env:CODEX_HOME = $PreviousCodexHome
+          }
+          if ((Get-Content -LiteralPath (Join-Path $OutsideTarget "canary.txt") -Raw) -cne "outside-canary") {
+              throw "Release installer modified the Junction target."
+          }
+          if (Test-Path -LiteralPath (Join-Path $OutsideTarget "pet.json")) {
+              throw "Release installer wrote through the Junction."
+          }

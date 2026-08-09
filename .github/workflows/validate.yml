@@ -40,27 +40,41 @@ jobs:
             .spritesheetPath == "spritesheet.webp"
           ' pet.json >/dev/null
 
-          export CODEX_HOME="$RUNNER_TEMP/codex-home"
-          sh scripts/install.sh
-          cmp pet.json "$CODEX_HOME/pets/milk-dragon/pet.json"
-          cmp spritesheet.webp "$CODEX_HOME/pets/milk-dragon/spritesheet.webp"
+          repository_root="$PWD"
+          installer="$repository_root/scripts/install.sh"
+          export CODEX_HOME="$RUNNER_TEMP/奶龙 codex home"
+          cd "$RUNNER_TEMP"
+          sh "$installer"
+          cmp "$repository_root/pet.json" "$CODEX_HOME/pets/milk-dragon/pet.json"
+          cmp "$repository_root/spritesheet.webp" "$CODEX_HOME/pets/milk-dragon/spritesheet.webp"
 
-          if sh scripts/install.sh; then
+          if sh "$installer"; then
             echo "Expected a protected reinstall to fail." >&2
             exit 1
           fi
 
-          sh scripts/install.sh --force
+          sh "$installer" --force
 
           canary="$RUNNER_TEMP/canary.txt"
           printf '%s\n' "do-not-overwrite" >"$canary"
           rm "$CODEX_HOME/pets/milk-dragon/pet.json"
           ln -s "$canary" "$CODEX_HOME/pets/milk-dragon/pet.json"
-          if sh scripts/install.sh --force; then
+          if sh "$installer" --force; then
             echo "Expected a linked target file to be rejected." >&2
             exit 1
           fi
           test "$(cat "$canary")" = "do-not-overwrite"
+
+          first_build="$RUNNER_TEMP/release build one"
+          second_build="$RUNNER_TEMP/release build two"
+          sh "$repository_root/scripts/build-release.sh" v1.0.0 "$first_build"
+          sh "$repository_root/scripts/build-release.sh" v1.0.0 "$second_build"
+          cmp \
+            "$first_build/milk-dragon-codex-pet-v1.0.0.zip" \
+            "$second_build/milk-dragon-codex-pet-v1.0.0.zip"
+          cmp \
+            "$first_build/milk-dragon-codex-pet-v1.0.0.zip.sha256" \
+            "$second_build/milk-dragon-codex-pet-v1.0.0.zip.sha256"
 
   windows-install:
     name: Install on Windows
@@ -90,22 +104,25 @@ jobs:
               throw "spritesheet.webp checksum mismatch."
           }
 
-          $env:CODEX_HOME = Join-Path $env:RUNNER_TEMP "codex-home"
-          & .\scripts\install.ps1
+          $RepositoryRoot = (Get-Location).Path
+          $Installer = Join-Path $RepositoryRoot "scripts\install.ps1"
+          $env:CODEX_HOME = Join-Path $env:RUNNER_TEMP "奶龙 codex home"
+          Set-Location -LiteralPath $env:RUNNER_TEMP
+          & $Installer
 
           $Destination = Join-Path $env:CODEX_HOME "pets\milk-dragon"
-          if ((Get-FileHash -LiteralPath "pet.json" -Algorithm SHA256).Hash -ne
+          if ((Get-FileHash -LiteralPath (Join-Path $RepositoryRoot "pet.json") -Algorithm SHA256).Hash -ne
               (Get-FileHash -LiteralPath (Join-Path $Destination "pet.json") -Algorithm SHA256).Hash) {
               throw "Installed pet.json differs from the package."
           }
-          if ((Get-FileHash -LiteralPath "spritesheet.webp" -Algorithm SHA256).Hash -ne
+          if ((Get-FileHash -LiteralPath (Join-Path $RepositoryRoot "spritesheet.webp") -Algorithm SHA256).Hash -ne
               (Get-FileHash -LiteralPath (Join-Path $Destination "spritesheet.webp") -Algorithm SHA256).Hash) {
               throw "Installed spritesheet.webp differs from the package."
           }
 
           $ProtectedReinstallFailed = $false
           try {
-              & .\scripts\install.ps1
+              & $Installer
           }
           catch {
               $ProtectedReinstallFailed = $true
@@ -114,18 +131,18 @@ jobs:
               throw "Expected a protected reinstall to fail."
           }
 
-          & .\scripts\install.ps1 -Force
+          & $Installer -Force
 
           $Canary = Join-Path $env:RUNNER_TEMP "canary.txt"
           Set-Content -LiteralPath $Canary -Value "do-not-overwrite" -NoNewline
           $InstalledManifest = Join-Path $Destination "pet.json"
           Remove-Item -LiteralPath $InstalledManifest -Force
           New-Item -ItemType HardLink -Path $InstalledManifest -Target $Canary | Out-Null
-          & .\scripts\install.ps1 -Force
+          & $Installer -Force
           if ((Get-Content -LiteralPath $Canary -Raw) -ne "do-not-overwrite") {
               throw "Installer overwrote a hard-linked file outside the pet directory."
           }
-          if ((Get-FileHash -LiteralPath "pet.json" -Algorithm SHA256).Hash -ne
+          if ((Get-FileHash -LiteralPath (Join-Path $RepositoryRoot "pet.json") -Algorithm SHA256).Hash -ne
               (Get-FileHash -LiteralPath $InstalledManifest -Algorithm SHA256).Hash) {
               throw "Hard-link-safe update did not install the packaged pet.json."
           }
