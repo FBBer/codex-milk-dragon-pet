@@ -359,12 +359,20 @@ jobs:
               }
 
               if ($ExpectFailure) {
-                  & powershell.exe @Arguments *> $null
+                  $PreviousErrorActionPreference = $ErrorActionPreference
+                  try {
+                      $ErrorActionPreference = "Continue"
+                      & powershell.exe @Arguments 2> $null 1> $null
+                      $Status = $LASTEXITCODE
+                  }
+                  finally {
+                      $ErrorActionPreference = $PreviousErrorActionPreference
+                  }
               }
               else {
                   & powershell.exe @Arguments
+                  $Status = $LASTEXITCODE
               }
-              $Status = $LASTEXITCODE
               if ($ExpectFailure -and $Status -eq 0) {
                   throw "Release installer unexpectedly succeeded."
               }
