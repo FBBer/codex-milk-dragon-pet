@@ -9,14 +9,14 @@
 
 > 一个老绷带
 
-这是一个可以安装到 ChatGPT/Codex 桌面应用 Pets 功能中的非官方社区自制宠物。安装后，宠物文件只保存在你的电脑上。
+这是一个可以安装到 ChatGPT/Codex 桌面应用 Pets 功能中的非官方社区自制宠物。本仓库提供本地安装包；支持云端 Pets 的客户端也可以使用账号中的云端宠物记录。
 
-## 最简单的安装方式：下载 Release
+## 最新修复版本：下载主分支
 
-不需要安装 Git，直接下载经过三平台测试的稳定包：
+不需要安装 Git，可以下载当前主分支的源代码 ZIP：
 
-1. [下载奶龙 v1.0.0 ZIP](https://github.com/FBBer/codex-milk-dragon-pet/releases/download/v1.0.0/milk-dragon-codex-pet-v1.0.0.zip)。
-2. 解压 ZIP，并进入解压得到的 `milk-dragon-codex-pet-v1.0.0` 文件夹。
+1. [下载当前奶龙项目 ZIP](https://github.com/FBBer/codex-milk-dragon-pet/archive/refs/heads/main.zip)。
+2. 解压 ZIP，并进入解压得到的 `codex-milk-dragon-pet-main` 文件夹。
 3. Windows 在该文件夹中打开 PowerShell，运行：
 
    ```powershell
@@ -29,7 +29,7 @@
    sh scripts/install.sh
    ```
 
-发布页同时提供 ZIP 的 SHA-256 校验文件。完整版本说明见 [Releases](https://github.com/FBBer/codex-milk-dragon-pet/releases)。
+历史 [v1.0.0 Release](https://github.com/FBBer/codex-milk-dragon-pet/releases/tag/v1.0.0) 保留用于追溯，未包含本次图集和安装脚本修复；需要最新版本请使用主分支。本次变更见 [修复说明](release/2026-10-14-sync.md)。
 
 ## 从仓库安装
 
@@ -76,7 +76,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Force
 3. 选择 **奶龙**。
 4. 输入 `/pet`，或在命令菜单中选择 **Wake Pet**。
 
-按照 [OpenAI 官方 Pets 文档](https://learn.chatgpt.com/docs/pets)，桌面端自定义宠物保存在本机，不会自动同步到 ChatGPT 网页版。
+本地安装脚本只更新本机的 `milk-dragon` 文件夹，不会自动更新账号中的云端宠物。若同时使用 Mac、Windows 和云端 Pets，应在各端选择同一只已有云端宠物，并更新该记录；不要重复创建同名宠物。本地 ID 和账号生成的云端 ID 不相同。客户端的窗口位置与大小仍可独立设置。
 
 ## 宠物信息
 
@@ -88,17 +88,31 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -Force
 - macOS / Linux 安装位置：`${CODEX_HOME:-$HOME/.codex}/pets/milk-dragon`
 - Windows 安装位置：`%CODEX_HOME%\pets\milk-dragon`；未设置 `CODEX_HOME` 时使用用户目录下的 `.codex\pets\milk-dragon`
 
-这个仓库提供的是桌面端本地 v2 宠物包。官方文档所述的网页版 **Upload pet** 当前要求 `1536 × 1872` 图集，因此不要把这里的 v2 图集直接上传到网页版。
+这个仓库提供 v2 宠物包。使用云端时，请通过支持 v2 的 Pets 工具或客户端入口上传/更新，并验证最终资源；旧版网页上传入口的限制可能不同，见 [OpenAI 官方 Pets 文档](https://learn.chatgpt.com/docs/pets)。
 
 ## 质量检查
 
 - v2 图集结构验证通过：无错误、无警告
-- 标准动作与 16 个观察方向已完成视觉检查
+- 57 个标准动作帧与 16 个观察方向已检查；跳跃峰值离地 12 px，落地基线误差 0 px
+- 完整质量门禁通过；四个主方向经三份独立盲测确认，中间方向的细微差异保留为已复核提示，未宣称零提示
 - [查看完整动作表](qa/contact-sheet.png)
 - [查看观察方向检查图](qa/look-directions.png)
 - [查看公开验证摘要](qa/validation-summary.json)
+- [查看完整质量门禁结果](qa/pet-quality.json)
+- [查看跳跃动画](qa/previews/idle-jump-idle.gif) · [查看全部动作 GIF](qa/previews/all-states.gif) · [查看 MP4](qa/previews/all-states.mp4)
 - [查看文件校验值](SHA256SUMS)
-- GitHub Actions 会在 macOS、Linux 和 Windows 上分别复测仓库安装与 Release 附件安装
+- GitHub Actions 在 macOS、Linux 和 Windows 上分别复测仓库安装和严格图集/质量门禁；历史 Release 附件另有独立安装检查
+
+本地复测（Python 3.12 + Pillow）：
+
+```bash
+python3 -m pip install 'Pillow>=12,<14'
+python3 scripts/check_quality.py --output-dir /tmp/milk-dragon-quality
+python3 tests/test_quality.py
+sh tests/test_install.sh
+```
+
+这些检查验证资源、动作几何和安装行为，不代替具体电脑上实时悬浮窗口的画面确认。
 
 ## 手动安装
 

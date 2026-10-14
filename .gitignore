@@ -3,3 +3,5 @@ Thumbs.db
 *.zip
 validation-local.json
 dist/
+__pycache__/
+.venv/

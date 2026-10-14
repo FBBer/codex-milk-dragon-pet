@@ -1,0 +1,127 @@
+{
+  "atlas_sha256": "d909d5f9de11e015e44564c76be3713edd078a8acfea88c54e4228d71ae2fbc9",
+  "reviewed_at": "2026-10-14",
+  "coordinate_system": "viewer/screen clockwise; 000 up",
+  "review_method": "normal-size labeled whole-body and head-focused final encoded sheet",
+  "directions": [
+    {
+      "label": "000",
+      "expected": "up",
+      "verdict": "pass",
+      "observed": "Both pupils and raised snout aim toward the top of the frame; the head extends upward.",
+      "evidence": "Raised bilateral eyes and upward nose tip provide a clear vertical cardinal."
+    },
+    {
+      "label": "022.5",
+      "expected": "up-right",
+      "verdict": "warning",
+      "observed": "The head leans slightly toward screen-right while the pupil remains high.",
+      "evidence": "The upward component is clear; horizontal yaw is subtle near the front-facing pose."
+    },
+    {
+      "label": "045",
+      "expected": "up-right",
+      "verdict": "pass",
+      "observed": "The snout turns to screen-right and the eye sits high in the face.",
+      "evidence": "Rightward nose projection and elevated pupil support both axes."
+    },
+    {
+      "label": "067.5",
+      "expected": "up-right",
+      "verdict": "warning",
+      "observed": "A right profile develops with a modest upward eye/head tilt.",
+      "evidence": "Horizontal direction is clear; vertical tilt is weaker than the preceding pose."
+    },
+    {
+      "label": "090",
+      "expected": "right",
+      "verdict": "pass",
+      "observed": "Eye and projecting snout face screen-right with near-level head.",
+      "evidence": "A right-facing profile is unambiguous."
+    },
+    {
+      "label": "112.5",
+      "expected": "down-right",
+      "verdict": "warning",
+      "observed": "Right-facing snout and head move slightly downward.",
+      "evidence": "The horizontal axis is clear but the initial downward pitch is subtle."
+    },
+    {
+      "label": "135",
+      "expected": "down-right",
+      "verdict": "pass",
+      "observed": "The right-facing head bends downward and the pupil tracks the lower-right.",
+      "evidence": "Head pitch and lowered snout establish both axes."
+    },
+    {
+      "label": "157.5",
+      "expected": "down-right",
+      "verdict": "pass",
+      "observed": "The bowed head and lower snout continue toward screen-right/down.",
+      "evidence": "The strongest downward right-profile pose precedes the down cardinal."
+    },
+    {
+      "label": "180",
+      "expected": "down",
+      "verdict": "pass",
+      "observed": "Both pupils and the centered snout point down toward the chest.",
+      "evidence": "The centered downward facial landmarks provide a clear vertical cardinal."
+    },
+    {
+      "label": "202.5",
+      "expected": "down-left",
+      "verdict": "pass",
+      "observed": "A left-facing snout emerges from the bowed head.",
+      "evidence": "The lowered eye and leftward nose establish the down-left quadrant."
+    },
+    {
+      "label": "225",
+      "expected": "down-left",
+      "verdict": "pass",
+      "observed": "The head turns screen-left with lowered snout and gaze.",
+      "evidence": "Both leftward projection and downward head pitch are visible."
+    },
+    {
+      "label": "247.5",
+      "expected": "down-left",
+      "verdict": "warning",
+      "observed": "A left profile retains a small downward tilt.",
+      "evidence": "The left axis is unambiguous; vertical pitch is small near the lateral cardinal."
+    },
+    {
+      "label": "270",
+      "expected": "left",
+      "verdict": "pass",
+      "observed": "The eye and snout face screen-left with near-level head.",
+      "evidence": "The left-facing profile provides an unambiguous horizontal cardinal."
+    },
+    {
+      "label": "292.5",
+      "expected": "up-left",
+      "verdict": "warning",
+      "observed": "Left-facing snout and pupil rise slightly above the lateral pose.",
+      "evidence": "The initial upward component is subtle while the left axis is clear."
+    },
+    {
+      "label": "315",
+      "expected": "up-left",
+      "verdict": "pass",
+      "observed": "Head and snout turn left/up, with a raised pupil and nose.",
+      "evidence": "Both axes are visible approaching the upper-left frontal family."
+    },
+    {
+      "label": "337.5",
+      "expected": "up-left",
+      "verdict": "warning",
+      "observed": "The face returns toward frontal with lifted eyes and a slight left yaw.",
+      "evidence": "Vertical direction is clear; horizontal left yaw is subtle near the up cardinal."
+    }
+  ],
+  "continuity_review": {
+    "accepted_warnings": [
+      "045->067.5: gradual front-to-profile change; no pose reversal or clipped parts.",
+      "157.5->180: right-profile to frontal downward pose changes silhouette; center drift 7.52px is below 26px hard gate.",
+      "337.5->000: near-frontal up-left to frontal up pose; center drift 6.5px and area ratio 1.146 stay below hard gates."
+    ]
+  }
+}

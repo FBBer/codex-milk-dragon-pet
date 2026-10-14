@@ -2,6 +2,7 @@
   "petId": "milk-dragon",
   "displayName": "奶龙",
   "spriteVersionNumber": 2,
+  "checkedAt": "2026-10-14",
   "atlas": {
     "format": "WebP",
     "width": 1536,
@@ -10,22 +11,61 @@
     "rows": 11,
     "cellWidth": 192,
     "cellHeight": 208,
-    "hasAlpha": true
+    "hasAlpha": true,
+    "sha256": "d909d5f9de11e015e44564c76be3713edd078a8acfea88c54e4228d71ae2fbc9"
   },
   "validation": {
     "ok": true,
     "errors": [],
     "warnings": []
   },
-  "visualQa": "pass",
+  "standardFrames": {
+    "ok": true,
+    "count": 57
+  },
+  "qualityGate": {
+    "ok": true,
+    "errors": [],
+    "warnings": [
+      "look direction 022.5 accepted with a reviewed warning",
+      "look direction 067.5 accepted with a reviewed warning",
+      "look direction 112.5 accepted with a reviewed warning",
+      "look direction 247.5 accepted with a reviewed warning",
+      "look direction 292.5 accepted with a reviewed warning",
+      "look direction 337.5 accepted with a reviewed warning",
+      "045->067.5 diff is a local outlier (1678 pixels vs neighbor average 1138)",
+      "157.5->180 diff is a local outlier (3825 pixels vs neighbor average 2338)",
+      "337.5->000 diff is a local outlier (2340 pixels vs neighbor average 1100)"
+    ],
+    "jump": {
+      "idle_baseline": 203,
+      "jump_baselines": [
+        203,
+        197,
+        191,
+        197,
+        203
+      ],
+      "airborne_lift_pixels": 12,
+      "landing_delta_pixels": 0
+    }
+  },
   "blindDirectionValidation": {
     "ok": true,
     "cardinalHardGates": "pass",
-    "reviewedIntermediateWarnings": 5
+    "errors": [],
+    "unconfirmed": [],
+    "reviewedWarnings": [
+      "horizontal-1 A horizontal axis is ambiguous",
+      "horizontal-1 B horizontal axis is ambiguous",
+      "vertical-4 A vertical axis is ambiguous",
+      "vertical-7 B vertical axis is ambiguous"
+    ]
   },
-  "staticIdentityGates": {
-    "threeQuarterScreenLeft": "pass",
-    "dominantPupilLowerLeft": "pass",
-    "farEyeSliverVisible": "pass"
-  }
+  "visualQa": "pass_with_reviewed_intermediate_direction_warnings",
+  "notes": [
+    "The 4 cardinal directions pass; some intermediate directions are subtle and explicitly reviewed, not presented as zero-warning.",
+    "All encoded states use one shared approximately 0.93 scale to leave jump headroom; peak lift is 12px and landing delta 0px.",
+    "Window position/size and live Windows UI are not covered by image/package checks."
+  ]
 }

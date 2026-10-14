@@ -87,14 +87,14 @@ handle_signal() {
   exit 1
 }
 
-trap cleanup 0
-trap handle_signal 1 2 15
-
 if [ -e "$TEMP_MANIFEST" ] || [ -L "$TEMP_MANIFEST" ] ||
    [ -e "$TEMP_SPRITE" ] || [ -L "$TEMP_SPRITE" ]; then
   printf '%s\n' "安装失败：临时文件名冲突，请重新运行安装。" >&2
   exit 1
 fi
+
+trap cleanup 0
+trap handle_signal 1 2 15
 
 cp "$SOURCE_MANIFEST" "$TEMP_MANIFEST"
 cp "$SOURCE_SPRITE" "$TEMP_SPRITE"

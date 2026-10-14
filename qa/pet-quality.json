@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "atlas": "spritesheet.webp",
+  "encoded_bytes": 1816994,
+  "sha256": "d909d5f9de11e015e44564c76be3713edd078a8acfea88c54e4228d71ae2fbc9",
+  "jump": {
+    "idle_baseline": 203,
+    "jump_baselines": [
+      203,
+      197,
+      191,
+      197,
+      203
+    ],
+    "airborne_lift_pixels": 12,
+    "landing_delta_pixels": 0
+  },
+  "look_registration": {
+    "neutral_center_x": 95,
+    "look_centers_x": [
+      94,
+      94.5,
+      93,
+      95,
+      95.5,
+      95.5,
+      95.5,
+      96,
+      95.5,
+      99,
+      97.5,
+      96,
+      97,
+      94.5,
+      95.5,
+      94.5
+    ],
+    "look_widths": [
+      106,
+      107,
+      106,
+      104,
+      105,
+      105,
+      105,
+      104,
+      109,
+      102,
+      103,
+      100,
+      96,
+      101,
+      97,
+      99
+    ],
+    "maximum_center_drift_pixels": 4,
+    "maximum_width_ratio": 1.1354166666666667
+  },
+  "errors": [],
+  "warnings": [
+    "look direction 022.5 accepted with a reviewed warning",
+    "look direction 067.5 accepted with a reviewed warning",
+    "look direction 112.5 accepted with a reviewed warning",
+    "look direction 247.5 accepted with a reviewed warning",
+    "look direction 292.5 accepted with a reviewed warning",
+    "look direction 337.5 accepted with a reviewed warning",
+    "045->067.5 diff is a local outlier (1678 pixels vs neighbor average 1138)",
+    "157.5->180 diff is a local outlier (3825 pixels vs neighbor average 2338)",
+    "337.5->000 diff is a local outlier (2340 pixels vs neighbor average 1100)"
+  ]
+}

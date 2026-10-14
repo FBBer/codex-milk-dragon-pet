@@ -8,6 +8,27 @@ permissions:
   contents: read
 
 jobs:
+  pet-quality:
+    name: Pet quality on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image validation dependency
+        run: python -m pip install 'Pillow>=12,<14'
+      - name: Validate encoded artwork and quality regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/check_quality.py --output-dir "$RUNNER_TEMP/pet-quality"
+          python tests/test_quality.py
+
   unix-install:
     name: Install on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -25,6 +46,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          sh tests/test_install.sh
 
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum -c SHA256SUMS
@@ -98,7 +121,7 @@ jobs:
               throw "pet.json does not match the expected manifest."
           }
 
-          $ExpectedSpriteHash = "f0f6d1568a5ce119645e851e8e72a497e4918b4df38a3a66f76a9ff7303a3437"
+          $ExpectedSpriteHash = "d909d5f9de11e015e44564c76be3713edd078a8acfea88c54e4228d71ae2fbc9"
           $ActualSpriteHash = (Get-FileHash -LiteralPath "spritesheet.webp" -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($ActualSpriteHash -ne $ExpectedSpriteHash) {
               throw "spritesheet.webp checksum mismatch."
