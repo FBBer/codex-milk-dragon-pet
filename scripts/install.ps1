@@ -143,7 +143,9 @@ function Install-FileSafely {
     if ([System.IO.File]::Exists($Target)) {
         # Replace the directory entry instead of writing through a hard link.
         # A backup path is unnecessary and would introduce another collision.
-        [System.IO.File]::Replace($Temporary, $Target, $null, $true)
+        # Windows PowerShell 5.1 coerces $null to an empty string for this
+        # overload. NullString passes an actual null backup path to .NET.
+        [System.IO.File]::Replace($Temporary, $Target, [System.Management.Automation.Language.NullString]::Value, $true)
     }
     else {
         [System.IO.File]::Move($Temporary, $Target)
