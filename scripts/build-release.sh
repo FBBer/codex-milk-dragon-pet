@@ -4,33 +4,35 @@ set -eu
 VERSION=${1:-}
 REQUESTED_OUTPUT_DIR=${2:-}
 
+usage() {
+  printf '%s\n' "用法：sh scripts/build-release.sh v1.0.1 [输出目录]（版本必须符合 SemVer）" >&2
+  exit 2
+}
+
+[ "$#" -le 2 ] || usage
+# Reject newlines and path separators before matching the complete SemVer tag.
 case "$VERSION" in
-  v[0-9]*.[0-9]*.[0-9]*)
-    ;;
-  *)
-    printf '%s\n' "用法：sh scripts/build-release.sh v1.0.0 [输出目录]" >&2
-    exit 2
-    ;;
+  ""|*[!0-9A-Za-z.+-]*) usage ;;
 esac
+SEMVER_NUMBER='(0|[1-9][0-9]*)'
+SEMVER_PRERELEASE="($SEMVER_NUMBER|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+SEMVER_BUILD='[0-9A-Za-z-]+'
+SEMVER_PATTERN="^v$SEMVER_NUMBER\\.$SEMVER_NUMBER\\.$SEMVER_NUMBER(-$SEMVER_PRERELEASE(\\.$SEMVER_PRERELEASE)*)?(\\+$SEMVER_BUILD(\\.$SEMVER_BUILD)*)?$"
+printf '%s\n' "$VERSION" | LC_ALL=C grep -Eq "$SEMVER_PATTERN" || usage
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+REPO_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)
 
-if [ -n "$(git -C "$REPO_DIR" status --porcelain --untracked-files=normal)" ]; then
+GIT_ROOT=$(git -C "$REPO_DIR" rev-parse --show-toplevel) || exit 1
+if [ "$GIT_ROOT" != "$REPO_DIR" ]; then
+  printf '%s\n' "构建失败：脚本必须位于此项目的 Git 仓库根目录下。" >&2
+  exit 1
+fi
+GIT_STATUS=$(git -C "$REPO_DIR" status --porcelain --untracked-files=normal) || exit 1
+if [ -n "$GIT_STATUS" ]; then
   printf '%s\n' "构建失败：Git 工作区必须干净，确保安装包与当前提交完全一致。" >&2
   exit 1
 fi
-
-if [ -n "$REQUESTED_OUTPUT_DIR" ]; then
-  mkdir -p "$REQUESTED_OUTPUT_DIR"
-  OUTPUT_DIR=$(CDPATH= cd -- "$REQUESTED_OUTPUT_DIR" && pwd)
-else
-  mkdir -p "$REPO_DIR/dist"
-  OUTPUT_DIR="$REPO_DIR/dist"
-fi
-PACKAGE_NAME="milk-dragon-codex-pet-$VERSION"
-ARCHIVE="$OUTPUT_DIR/$PACKAGE_NAME.zip"
-ARCHIVE_CHECKSUM="$ARCHIVE.sha256"
 
 for SOURCE in \
   "$REPO_DIR/pet.json" \
@@ -40,8 +42,15 @@ for SOURCE in \
   "$REPO_DIR/release/INSTALL.md" \
   "$REPO_DIR/ASSET-NOTICE.md" \
   "$REPO_DIR/LICENSE-CODE.md"; do
-  if [ ! -f "$SOURCE" ]; then
-    printf '%s\n' "构建失败：缺少文件 $SOURCE" >&2
+  if [ ! -f "$SOURCE" ] || [ -L "$SOURCE" ]; then
+    printf '%s\n' "构建失败：文件缺失、不是普通文件或是符号链接：$SOURCE" >&2
+    exit 1
+  fi
+done
+
+for SOURCE_DIRECTORY in "$REPO_DIR/scripts" "$REPO_DIR/release"; do
+  if [ -L "$SOURCE_DIRECTORY" ]; then
+    printf '%s\n' "构建失败：源文件夹是符号链接：$SOURCE_DIRECTORY" >&2
     exit 1
   fi
 done
@@ -51,7 +60,19 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -e "$ARCHIVE" ] || [ -e "$ARCHIVE_CHECKSUM" ]; then
+if [ -n "$REQUESTED_OUTPUT_DIR" ]; then
+  mkdir -p "$REQUESTED_OUTPUT_DIR"
+  OUTPUT_DIR=$(CDPATH= cd -- "$REQUESTED_OUTPUT_DIR" && pwd -P)
+else
+  mkdir -p "$REPO_DIR/dist"
+  OUTPUT_DIR="$REPO_DIR/dist"
+fi
+PACKAGE_NAME="milk-dragon-codex-pet-$VERSION"
+ARCHIVE="$OUTPUT_DIR/$PACKAGE_NAME.zip"
+ARCHIVE_CHECKSUM="$ARCHIVE.sha256"
+
+if [ -e "$ARCHIVE" ] || [ -L "$ARCHIVE" ] ||
+   [ -e "$ARCHIVE_CHECKSUM" ] || [ -L "$ARCHIVE_CHECKSUM" ]; then
   printf '%s\n' "构建失败：输出已存在，请先移走旧文件：$ARCHIVE" >&2
   exit 1
 fi
@@ -66,8 +87,17 @@ case "$TEMP_ROOT" in
     ;;
 esac
 PACKAGE_DIR="$TEMP_ROOT/$PACKAGE_NAME"
+OUTPUT_STAGE=""
+ARCHIVE_PUBLISHED=0
+BUILD_COMPLETED=0
 
 cleanup() {
+  if [ "$ARCHIVE_PUBLISHED" -eq 1 ] && [ "$BUILD_COMPLETED" -eq 0 ]; then
+    rm -f "$ARCHIVE"
+  fi
+  if [ -n "$OUTPUT_STAGE" ]; then
+    rm -rf "$OUTPUT_STAGE"
+  fi
   rm -rf "$TEMP_ROOT"
 }
 
@@ -80,6 +110,9 @@ handle_signal() {
 trap cleanup 0
 trap handle_signal 1 2 15
 
+OUTPUT_STAGE=$(mktemp -d "$OUTPUT_DIR/.milk-dragon-release.XXXXXX")
+STAGED_ARCHIVE="$OUTPUT_STAGE/$PACKAGE_NAME.zip"
+STAGED_CHECKSUM="$STAGED_ARCHIVE.sha256"
 mkdir -p "$PACKAGE_DIR/scripts" "$OUTPUT_DIR"
 cp "$REPO_DIR/pet.json" "$PACKAGE_DIR/pet.json"
 cp "$REPO_DIR/spritesheet.webp" "$PACKAGE_DIR/spritesheet.webp"
@@ -130,16 +163,23 @@ find "$PACKAGE_DIR" -exec touch -t "$FIXED_TIMESTAMP" {} \;
 
 (
   cd "$TEMP_ROOT"
-  find "$PACKAGE_NAME" -print | LC_ALL=C sort | zip -X -0 -q "$ARCHIVE" -@
+  find "$PACKAGE_NAME" -print | LC_ALL=C sort | zip -X -0 -q "$STAGED_ARCHIVE" -@
 )
 
 if command -v sha256sum >/dev/null 2>&1; then
-  ARCHIVE_HASH=$(sha256sum "$ARCHIVE" | awk '{print $1}')
+  ARCHIVE_HASH=$(sha256sum "$STAGED_ARCHIVE" | awk '{print $1}')
 else
-  ARCHIVE_HASH=$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')
+  ARCHIVE_HASH=$(shasum -a 256 "$STAGED_ARCHIVE" | awk '{print $1}')
 fi
 
-printf '%s  %s\n' "$ARCHIVE_HASH" "$(basename "$ARCHIVE")" >"$ARCHIVE_CHECKSUM"
+printf '%s  %s\n' "$ARCHIVE_HASH" "$(basename "$ARCHIVE")" >"$STAGED_CHECKSUM"
+
+# Publish only complete files; hard links on the same output filesystem also
+# refuse an existing destination rather than overwriting it in a concurrent run.
+ln "$STAGED_ARCHIVE" "$ARCHIVE"
+ARCHIVE_PUBLISHED=1
+ln "$STAGED_CHECKSUM" "$ARCHIVE_CHECKSUM"
+BUILD_COMPLETED=1
 
 trap - 0 1 2 15
 cleanup

@@ -10,7 +10,7 @@ on:
       tag:
         description: Release tag to download and validate
         required: true
-        default: v1.0.0
+        default: v1.0.1
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ env:
   ARCHIVE_NAME: milk-dragon-codex-pet-${{ github.event.release.tag_name || inputs.tag }}.zip
   PACKAGE_DIR_NAME: milk-dragon-codex-pet-${{ github.event.release.tag_name || inputs.tag }}
   EXPECTED_PET_SHA256: 3c5d0f60fad3db129574ca0481029e2a2eea38c036e4c550060d988239b5a64e
-  EXPECTED_SPRITE_SHA256: f0f6d1568a5ce119645e851e8e72a497e4918b4df38a3a66f76a9ff7303a3437
+  EXPECTED_SPRITE_SHA256: ${{ (github.event.release.tag_name || inputs.tag) == 'v1.0.0' && 'f0f6d1568a5ce119645e851e8e72a497e4918b4df38a3a66f76a9ff7303a3437' || 'd909d5f9de11e015e44564c76be3713edd078a8acfea88c54e4228d71ae2fbc9' }}
 
 jobs:
   unix-release-install:
@@ -39,6 +39,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          case "$RELEASE_TAG" in
+            v1.0.0|v1.0.1) ;;
+            *) echo "Unsupported release tag: $RELEASE_TAG" >&2; exit 1 ;;
+          esac
 
           base_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
           download_dir="$RUNNER_TEMP/发布 下载"
@@ -202,6 +207,10 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = "Stop"
           $ProgressPreference = "SilentlyContinue"
+
+          if ($env:RELEASE_TAG -cnotin @("v1.0.0", "v1.0.1")) {
+              throw "Unsupported release tag: $env:RELEASE_TAG"
+          }
 
           function Get-ReleaseAsset {
               param(

@@ -3,6 +3,11 @@ set -eu
 
 FORCE=0
 
+if [ "$#" -gt 1 ]; then
+  printf '%s\n' "用法：sh scripts/install.sh [--force]" >&2
+  exit 2
+fi
+
 case "${1:-}" in
   "")
     ;;
@@ -26,8 +31,9 @@ REPO_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 SOURCE_MANIFEST="$REPO_DIR/pet.json"
 SOURCE_SPRITE="$REPO_DIR/spritesheet.webp"
 
-if [ ! -f "$SOURCE_MANIFEST" ] || [ ! -f "$SOURCE_SPRITE" ]; then
-  printf '%s\n' "安装失败：仓库中的 pet.json 或 spritesheet.webp 缺失。" >&2
+if [ ! -f "$SOURCE_MANIFEST" ] || [ -L "$SOURCE_MANIFEST" ] ||
+   [ ! -f "$SOURCE_SPRITE" ] || [ -L "$SOURCE_SPRITE" ]; then
+  printf '%s\n' "安装失败：pet.json 或 spritesheet.webp 缺失、不是普通文件或是符号链接。" >&2
   exit 1
 fi
 
@@ -38,7 +44,28 @@ else
   CODEX_ROOT="$HOME/.codex"
 fi
 
-DESTINATION="$CODEX_ROOT/pets/milk-dragon"
+case "$CODEX_ROOT" in
+  /*) ;;
+  *)
+    printf '%s\n' "安装失败：CODEX_HOME 必须是绝对路径。" >&2
+    exit 1
+    ;;
+esac
+while [ "$CODEX_ROOT" != / ] && [ "${CODEX_ROOT%/}" != "$CODEX_ROOT" ]; do
+  CODEX_ROOT=${CODEX_ROOT%/}
+done
+PETS_ROOT="$CODEX_ROOT/pets"
+for PARENT in "$CODEX_ROOT" "$PETS_ROOT"; do
+  if [ -L "$PARENT" ]; then
+    printf '%s\n' "安装失败：宠物目录的父位置是符号链接：$PARENT" >&2
+    exit 1
+  fi
+  if [ -e "$PARENT" ] && [ ! -d "$PARENT" ]; then
+    printf '%s\n' "安装失败：宠物目录的父位置不是文件夹：$PARENT" >&2
+    exit 1
+  fi
+done
+DESTINATION="$PETS_ROOT/milk-dragon"
 
 if [ -L "$DESTINATION" ]; then
   printf '%s\n' "安装失败：目标位置是符号链接，已为安全起见停止。" >&2
@@ -105,4 +132,4 @@ mv -f "$TEMP_SPRITE" "$DESTINATION_SPRITE"
 trap - 0 1 2 15
 
 printf '\n%s\n' "奶龙安装完成：$DESTINATION"
-printf '%s\n' "接下来打开 Settings → Pets，点击 Refresh，选择“奶龙”，再输入 /pet 唤醒。"
+printf '%s\n' "本地资源已安装；请按 README 的本地模式说明选择宠物。云端 Pets 不会因本地安装自动更新。"
